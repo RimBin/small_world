@@ -1,0 +1,18 @@
+{
+  "expo": {
+    "name": "Small World",
+    "slug": "small-world",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#F4E8C8"
+      }
+    }
+  }
+}
