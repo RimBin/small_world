@@ -6,6 +6,13 @@
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
+    "experiments": {
+      "baseUrl": "/small_world"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
     "ios": {
       "supportsTablet": true
     },
