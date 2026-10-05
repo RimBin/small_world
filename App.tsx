@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import {
   SafeAreaView,
   StyleSheet,
@@ -8,125 +8,155 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 
-type Mission = {
-  id: number;
-  prompt: string;
-  options: number[];
-  answer: number;
-  reward: string;
+const TOTAL_PLANKS = 4;
+const STARTING_PLANKS = 2;
+const CORRECT_ANSWER = TOTAL_PLANKS - STARTING_PLANKS;
+
+const speak = (text: string) => {
+  try {
+    const synth = (globalThis as any).speechSynthesis;
+    const Utterance = (globalThis as any).SpeechSynthesisUtterance;
+
+    if (!synth || !Utterance) return;
+
+    synth.cancel();
+    const utterance = new Utterance(text);
+    utterance.lang = 'lt-LT';
+    utterance.rate = 0.82;
+    utterance.pitch = 1.05;
+    synth.speak(utterance);
+  } catch {
+    // Voice is a convenience layer. The task remains fully understandable visually.
+  }
 };
 
-const MISSIONS: Mission[] = [
-  {
-    id: 1,
-    prompt: 'Bebrams tiltui trūksta lentų. Kiek reikia pridėti, kad būtų 4?',
-    options: [1, 2, 3],
-    answer: 2,
-    reward: 'Pirmoji tilto dalis jau pastatyta!',
-  },
-  {
-    id: 2,
-    prompt: 'Meškiukas rado seką: 1, 2, 3… Kas toliau?',
-    options: [2, 4, 5],
-    answer: 4,
-    reward: 'Tiltas tapo ilgesnis!',
-  },
-  {
-    id: 3,
-    prompt: 'Lapė prašo eiti į dešinę. Kur rodo dešinė?',
-    options: [0, 1, 2],
-    answer: 1,
-    reward: 'Kelias per upę beveik baigtas!',
-  },
-];
-
 export default function App() {
-  const [missionIndex, setMissionIndex] = useState(0);
-  const [completed, setCompleted] = useState(0);
-  const [message, setMessage] = useState('Padėk gyvūnams auginti jų pasaulį.');
   const [finished, setFinished] = useState(false);
+  const [wrongChoice, setWrongChoice] = useState<number | null>(null);
+  const [attempts, setAttempts] = useState(0);
 
-  const mission = MISSIONS[missionIndex];
-  const bridge = useMemo(() => '🪵'.repeat(Math.max(1, completed + 1)), [completed]);
+  const playInstruction = () => {
+    speak('Meškiukui reikia pastatyti tiltą. Tiltui reikia keturių lentų. Dvi lentos jau yra. Kiek lentų dar trūksta?');
+  };
 
   const choose = (value: number) => {
-    if (finished) return;
+    setAttempts((current) => current + 1);
 
-    if (value !== mission.answer) {
-      setMessage('Beveik! Pabandyk dar kartą.');
-      return;
-    }
-
-    const nextCompleted = completed + 1;
-    setCompleted(nextCompleted);
-    setMessage(mission.reward);
-
-    if (missionIndex === MISSIONS.length - 1) {
+    if (value === CORRECT_ANSWER) {
+      setWrongChoice(null);
       setFinished(true);
+      speak('Taip! Trūko dviejų lentų. Tiltas pastatytas!');
       return;
     }
 
-    setMissionIndex((current) => current + 1);
+    setWrongChoice(value);
+    speak('Dar kartą. Pažiūrėk į tuščias vietas ant tilto.');
   };
 
   const restart = () => {
-    setMissionIndex(0);
-    setCompleted(0);
-    setMessage('Padėk gyvūnams auginti jų pasaulį.');
     setFinished(false);
+    setWrongChoice(null);
+    setAttempts(0);
   };
+
+  const bridgeSlots = Array.from({ length: TOTAL_PLANKS }, (_, index) => {
+    const isFilled = finished || index < STARTING_PLANKS;
+
+    return (
+      <View key={index} style={[styles.bridgeSlot, !isFilled && styles.emptySlot]}>
+        <Text style={styles.plank}>{isFilled ? '🪵' : '＋'}</Text>
+      </View>
+    );
+  });
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" />
       <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.eyebrow}>MANO MAŽASIS PASAULIS</Text>
-          <Text style={styles.title}>Miško upė</Text>
-          <Text style={styles.progress}>Misijos {completed}/{MISSIONS.length}</Text>
+        <View style={styles.topBar}>
+          <View>
+            <Text style={styles.eyebrow}>MANO MAŽASIS PASAULIS</Text>
+            <Text style={styles.title}>Pastatyk tiltą</Text>
+          </View>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="Paklausyti užduoties"
+            activeOpacity={0.75}
+            style={styles.soundButton}
+            onPress={playInstruction}
+          >
+            <Text style={styles.soundIcon}>🔊</Text>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.world}>
-          <Text style={styles.sky}>☀️      ☁️</Text>
-          <View style={styles.landRow}>
-            <Text style={styles.tree}>🌲</Text>
-            <Text style={styles.bear}>🐻</Text>
-            <Text style={styles.tree}>🌳</Text>
+          <View style={styles.skyRow}>
+            <Text style={styles.skyIcon}>☀️</Text>
+            <Text style={styles.skyIcon}>☁️</Text>
           </View>
+
+          <View style={styles.characterRow}>
+            <View style={styles.characterBlock}>
+              <Text style={styles.bear}>{finished ? '🐻‍❄️' : '🐻'}</Text>
+              <Text style={styles.characterLabel}>{finished ? 'Valio!' : 'Padėk man!'}</Text>
+            </View>
+            <Text style={styles.arrow}>{finished ? '🎉' : '➡️'}</Text>
+            <View style={styles.treeBlock}>
+              <Text style={styles.tree}>🌳</Text>
+              <Text style={styles.tree}>🌲</Text>
+            </View>
+          </View>
+
           <View style={styles.river}>
-            <Text style={styles.bridge}>{bridge}</Text>
+            <View style={styles.bridgeRow}>{bridgeSlots}</View>
           </View>
-          <Text style={styles.worldCaption}>{message}</Text>
+
+          {!finished ? (
+            <View style={styles.visualQuestion}>
+              <Text style={styles.countLine}>🪵 🪵  ＋  ＋</Text>
+              <Text style={styles.question}>Kiek lentų trūksta?</Text>
+              <Text style={styles.helper}>Pažiūrėk į 2 tuščias vietas 👀</Text>
+            </View>
+          ) : (
+            <View style={styles.successBox}>
+              <Text style={styles.successEmoji}>⭐ ⭐ ⭐</Text>
+              <Text style={styles.successTitle}>Tiltas pastatytas!</Text>
+              <Text style={styles.successText}>Buvo 2 lentos. Pridėjai dar 2.</Text>
+            </View>
+          )}
         </View>
 
         {!finished ? (
-          <View style={styles.card}>
-            <Text style={styles.missionLabel}>DABAR PADĖK</Text>
-            <Text style={styles.prompt}>{mission.prompt}</Text>
+          <View style={styles.answerArea}>
+            <Text style={styles.tapHint}>PASPAUSK, KIEK LENTŲ REIKIA</Text>
             <View style={styles.options}>
-              {mission.options.map((option) => (
-                <TouchableOpacity
-                  key={option}
-                  style={styles.option}
-                  activeOpacity={0.75}
-                  onPress={() => choose(option)}
-                >
-                  <Text style={styles.optionText}>
-                    {mission.id === 3 ? (option === 0 ? '←' : option === 1 ? '→' : '↑') : option}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+              {[1, 2, 3].map((option) => {
+                const isWrong = wrongChoice === option;
+                return (
+                  <TouchableOpacity
+                    key={option}
+                    activeOpacity={0.78}
+                    onPress={() => choose(option)}
+                    style={[styles.option, isWrong && styles.wrongOption]}
+                  >
+                    <Text style={styles.optionNumber}>{option}</Text>
+                    <Text style={styles.optionPlanks}>{'🪵'.repeat(option)}</Text>
+                    {isWrong && <Text style={styles.tryAgain}>Pažiūrėk dar kartą</Text>}
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           </View>
         ) : (
-          <View style={styles.card}>
-            <Text style={styles.doneEmoji}>🌙</Text>
-            <Text style={styles.prompt}>Šiandien jau daug nuveikėme.</Text>
-            <Text style={styles.doneText}>Tiltas pastatytas. Rytoj pasaulis galės augti toliau.</Text>
-            <TouchableOpacity style={styles.restartButton} onPress={restart}>
-              <Text style={styles.restartText}>Pakartoti prototipą</Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity style={styles.restartButton} activeOpacity={0.8} onPress={restart}>
+            <Text style={styles.restartText}>↻  Žaisti dar kartą</Text>
+          </TouchableOpacity>
+        )}
+
+        {attempts > 0 && !finished && (
+          <TouchableOpacity style={styles.listenAgain} onPress={playInstruction}>
+            <Text style={styles.listenAgainText}>🔊 Paklausyti dar kartą</Text>
+          </TouchableOpacity>
         )}
       </View>
     </SafeAreaView>
@@ -140,129 +170,236 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 24,
+    width: '100%',
+    maxWidth: 560,
+    alignSelf: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 18,
   },
-  header: {
-    marginBottom: 14,
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
   },
   eyebrow: {
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 1.4,
-    color: '#6B7350',
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 1.3,
+    color: '#6F775C',
   },
   title: {
-    marginTop: 4,
-    fontSize: 30,
+    marginTop: 3,
+    fontSize: 28,
     fontWeight: '900',
     color: '#26351F',
   },
-  progress: {
-    marginTop: 4,
-    color: '#66725D',
-    fontWeight: '600',
+  soundButton: {
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFD86B',
+    borderWidth: 3,
+    borderColor: '#FFF4C6',
+  },
+  soundIcon: {
+    fontSize: 30,
   },
   world: {
     flex: 1,
-    minHeight: 300,
-    borderRadius: 28,
-    padding: 20,
-    justifyContent: 'space-between',
-    backgroundColor: '#DDECC8',
+    minHeight: 390,
+    borderRadius: 30,
+    padding: 18,
+    backgroundColor: '#DFF1CD',
     overflow: 'hidden',
+    justifyContent: 'space-between',
   },
-  sky: {
-    fontSize: 30,
-    textAlign: 'center',
-  },
-  landRow: {
+  skyRow: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-around',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
   },
-  tree: {
-    fontSize: 58,
+  skyIcon: {
+    fontSize: 30,
+  },
+  characterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  characterBlock: {
+    alignItems: 'center',
+    minWidth: 96,
   },
   bear: {
-    fontSize: 70,
+    fontSize: 72,
+  },
+  characterLabel: {
+    marginTop: 3,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: '#FFFDF7',
+    color: '#394532',
+    fontWeight: '900',
+    fontSize: 15,
+  },
+  arrow: {
+    fontSize: 34,
+  },
+  treeBlock: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+  },
+  tree: {
+    fontSize: 46,
   },
   river: {
-    minHeight: 86,
-    borderRadius: 24,
-    backgroundColor: '#A7D5E8',
+    minHeight: 112,
+    borderRadius: 26,
+    backgroundColor: '#9FD8F1',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+    borderWidth: 4,
+    borderColor: '#C7EBF8',
+  },
+  bridgeRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  bridgeSlot: {
+    width: 64,
+    height: 72,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 10,
+    backgroundColor: '#EAB56E',
+    borderWidth: 3,
+    borderColor: '#A86935',
   },
-  bridge: {
-    fontSize: 35,
+  emptySlot: {
+    backgroundColor: 'rgba(255,255,255,0.5)',
+    borderStyle: 'dashed',
+    borderColor: '#FFFFFF',
   },
-  worldCaption: {
+  plank: {
+    fontSize: 34,
+  },
+  visualQuestion: {
+    alignItems: 'center',
+    paddingTop: 6,
+  },
+  countLine: {
+    fontSize: 28,
+    letterSpacing: 2,
+  },
+  question: {
+    marginTop: 6,
     textAlign: 'center',
-    fontSize: 16,
-    lineHeight: 22,
+    fontSize: 25,
+    lineHeight: 30,
+    fontWeight: '900',
+    color: '#2B3925',
+  },
+  helper: {
+    marginTop: 4,
+    fontSize: 15,
     fontWeight: '700',
-    color: '#35422D',
+    color: '#5B6853',
   },
-  card: {
-    marginTop: 16,
-    borderRadius: 24,
-    padding: 18,
-    backgroundColor: '#FFFDF8',
+  successBox: {
+    alignItems: 'center',
+    paddingVertical: 10,
   },
-  missionLabel: {
+  successEmoji: {
+    fontSize: 27,
+  },
+  successTitle: {
+    marginTop: 5,
+    fontSize: 25,
+    fontWeight: '900',
+    color: '#2A3A24',
+  },
+  successText: {
+    marginTop: 3,
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#596650',
+  },
+  answerArea: {
+    marginTop: 14,
+  },
+  tapHint: {
+    marginBottom: 8,
+    textAlign: 'center',
     fontSize: 11,
     fontWeight: '900',
-    letterSpacing: 1.2,
-    color: '#A16F35',
-  },
-  prompt: {
-    marginTop: 7,
-    fontSize: 20,
-    lineHeight: 26,
-    fontWeight: '800',
-    color: '#2C322A',
+    letterSpacing: 1.1,
+    color: '#7C664A',
   },
   options: {
     flexDirection: 'row',
-    gap: 10,
-    marginTop: 16,
+    gap: 9,
   },
   option: {
     flex: 1,
-    minHeight: 64,
-    borderRadius: 18,
+    minHeight: 108,
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F0D69A',
+    backgroundColor: '#FFFDF7',
+    borderWidth: 3,
+    borderColor: '#E8D8B5',
+    paddingHorizontal: 4,
   },
-  optionText: {
-    fontSize: 28,
+  wrongOption: {
+    backgroundColor: '#FFF0E6',
+    borderColor: '#E7A37D',
+  },
+  optionNumber: {
+    fontSize: 32,
+    lineHeight: 35,
     fontWeight: '900',
-    color: '#3F3524',
+    color: '#3E3528',
   },
-  doneEmoji: {
-    fontSize: 34,
+  optionPlanks: {
+    marginTop: 5,
+    fontSize: 20,
   },
-  doneText: {
-    marginTop: 8,
-    fontSize: 15,
-    lineHeight: 21,
-    color: '#60675A',
+  tryAgain: {
+    marginTop: 4,
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#A65E42',
+    textAlign: 'center',
   },
   restartButton: {
-    marginTop: 16,
-    minHeight: 52,
-    borderRadius: 16,
+    marginTop: 14,
+    minHeight: 66,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#385B36',
+    backgroundColor: '#416E3C',
   },
   restartText: {
     color: '#FFFFFF',
+    fontWeight: '900',
+    fontSize: 19,
+  },
+  listenAgain: {
+    marginTop: 9,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  listenAgainText: {
+    color: '#5E654E',
     fontWeight: '800',
-    fontSize: 16,
+    fontSize: 14,
   },
 });
